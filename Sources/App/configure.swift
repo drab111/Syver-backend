@@ -5,6 +5,10 @@ import Vapor
 
 // configures your application
 public func configure(_ app: Application) async throws {
+    if let portString = Environment.get("PORT"), let port = Int(portString) {
+        app.http.server.configuration.port = port
+    }
+    
     let corsConfiguration = CORSMiddleware.Configuration(
         allowedOrigin: .all,
         allowedMethods: [.GET, .POST, .DELETE, .OPTIONS, .PUT, .PATCH],
