@@ -1,14 +1,25 @@
 import Fluent
+import Foundation
+import SwiftSoup
 import Vapor
 
+
+
 func routes(_ app: Application) throws {
-    app.get { req async in
-        "It works!"
+    
+    
+    app.get("cleanUrl") { req -> String in
+        // Pobieramy URL z query string
+        let originalUrl = try req.query.get(String.self, at: "url")
+        
+        // Usuwamy protokół `http://` lub `https://` za pomocą RegEx
+        let cleanedUrl = originalUrl.replacingOccurrences(
+            of: "^https?://",
+            with: "",
+            options: .regularExpression
+        )
+        
+        // Zwracamy tekst
+        return cleanedUrl
     }
-
-    app.get("hello") { req async -> String in
-        "Hello, world!"
-    }
-
-    try app.register(collection: TodoController())
 }
