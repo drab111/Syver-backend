@@ -44,10 +44,18 @@ func routes(_ app: Application) throws {
         let summarizeReq = try req.query.decode(SummarizeRequest.self)
         let lang = summarizeReq.lang ?? "en"
         
-        // 2. Pobieramy zawartość strony
-        return req.client.get(URI(string: summarizeReq.url))
+        guard let scheme = URI(string: summarizeReq.url).scheme?.lowercased(),
+              (scheme == "http" || scheme == "https") else {
+            // Jeśli URL nie zawiera protokołu http/https to zwracamy błąd
+            return req.eventLoop.makeSucceededFuture("Invalid URL. Must start with http:// or https://")
+        }
         
-        // 2a. Parsowanie HTML (rzucamy błędy -> flatMapThrowing)
+        // 2. Pobieramy zawartość strony
+        return req.client.get(URI(string: summarizeReq.url)) { clientRequest in
+            clientRequest.headers.add(name: "User-Agent", value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15")
+        }
+        
+        // Parsowanie HTML (rzucamy błędy -> flatMapThrowing)
             .flatMapThrowing { htmlResponse in
                 guard let buffer = htmlResponse.body else {
                     throw Abort(.badRequest, reason: "Brak treści w odpowiedzi HTML")
@@ -64,12 +72,13 @@ func routes(_ app: Application) throws {
         
         // 3. Wysyłamy zapytanie do OpenRouter
             .flatMap { extractedText in
+                let actualText = extractedText.isEmpty ? "**[Could not fetch actual article text – try to guess the content based on the URL: '\(summarizeReq.url)' or your training data]**": extractedText
                 // Budujemy request do OpenRouter
                 let openRouterReq = OpenRouterRequest(
                     model: "google/gemini-2.0-flash-exp:free",
                     messages: [
                         .init(role: "system", content: "You are a helpful AI for summarizing articles in the language requested by the user"),
-                        .init(role: "user", content: "The user language code is '\(lang)'. Summarize the following article in this language in 3-5 sentences:\n\(extractedText)")
+                        .init(role: "user", content: "The user language code is '\(lang)'. Summarize the following article in this language in 3-5 sentences:\n\(actualText)")
                     ],
                     max_tokens: 2000
                 )
