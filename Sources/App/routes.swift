@@ -36,6 +36,12 @@ struct OpenRouterChoice: Content {
     let finish_reason: String
 }
 
+struct SummarizeFullRequest: Content {
+    let url: String
+    let content: String
+    let lang: String
+}
+
 func routes(_ app: Application) throws {
     
     app.get("summarize") { req -> EventLoopFuture<String> in
@@ -95,11 +101,43 @@ func routes(_ app: Application) throws {
             .flatMapThrowing { openRouterResponse in
                 let decoded = try openRouterResponse.content.decode(OpenRouterResponse.self)
                 guard let choice = decoded.choices.first else {
-                    throw Abort(.badRequest, reason: "Brak treści w odpowiedzi modelu")
+                    throw Abort(.badRequest, reason: "No choices from model")
                 }
                 
                 // 5. Zwracamy gotowe streszczenie
                 return choice.message.content
             }
+    }
+    
+    app.post("summarizeFull") { req -> EventLoopFuture<String> in
+        // Dekodujemy dane
+        let body = try req.content.decode(SummarizeFullRequest.self)
+        
+        let url = body.url
+        let pageText = body.content
+        let lang = body.lang.isEmpty ? "en" : body.lang
+        
+        // Budujemy prompt do openrouter
+        let openRouterReq = OpenRouterRequest(
+            model: "google/gemini-2.0-flash-exp:free",
+            messages: [
+                .init(role: "system", content: "You are a helpful AI for summarizing articles in the language requested by the user."),
+                .init(role: "user", content: "The user language code is '\(lang)'. Summarize the following article in this language in 3-5 sentences:\n\(pageText)")
+            ],
+            max_tokens: 2000
+        )
+        
+        // Wywołujemy openrouter.ai
+        return req.client.post(URI(string: "https://openrouter.ai/api/v1/chat/completions")) { outReq in
+            outReq.headers.bearerAuthorization = BearerAuthorization(token: apiKey)
+            outReq.headers.add(name: .contentType, value: "application/json")
+            try outReq.content.encode(openRouterReq)
+        }.flatMapThrowing { openRouterResponse in
+            let decoded = try openRouterResponse.content.decode(OpenRouterResponse.self)
+            guard let choice = decoded.choices.first else {
+                throw Abort(.badRequest, reason: "No choices from model")
+            }
+            return choice.message.content
+        }
     }
 }
