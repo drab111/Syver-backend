@@ -64,7 +64,7 @@ func routes(_ app: Application) throws {
         // Parsowanie HTML (rzucamy błędy -> flatMapThrowing)
             .flatMapThrowing { htmlResponse in
                 guard let buffer = htmlResponse.body else {
-                    throw Abort(.badRequest, reason: "Brak treści w odpowiedzi HTML")
+                    throw Abort(.badRequest, reason: "No content in HTML response")
                 }
                 let htmlString = buffer.getString(at: 0, length: buffer.readableBytes) ?? ""
                 
@@ -81,6 +81,14 @@ func routes(_ app: Application) throws {
                 let actualText = extractedText.isEmpty ? "**[Could not fetch actual article text – try to guess the content based on the URL: '\(summarizeReq.url)' or your training data]**": extractedText
                 // Budujemy request do OpenRouter
                 let openRouterReq = OpenRouterRequest(
+                    /* Działające AI (wystarczy podmienić)
+                    
+                    google/gemini-2.0-flash-exp:free
+                    meta-llama/llama-3.1-8b-instruct:free
+                    qwen/qwen-2.5-vl-7b-instruct:free
+                    mistralai/mistral-nemo:free
+                     
+                     */
                     model: "google/gemini-2.0-flash-exp:free",
                     messages: [
                         .init(role: "system", content: "You are a helpful AI for summarizing articles in the language requested by the user"),
@@ -113,7 +121,7 @@ func routes(_ app: Application) throws {
         // Dekodujemy dane
         let body = try req.content.decode(SummarizeFullRequest.self)
         
-        let url = body.url
+        _ = body.url
         let pageText = body.content
         let lang = body.lang.isEmpty ? "en" : body.lang
         

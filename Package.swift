@@ -17,8 +17,6 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
         // SwiftSoup (do parsowania HTML)
         .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.6.0"),
-        // DotEnv do ładowania zmiennych środowiskowych
-        //
     ],
     targets: [
         .executableTarget(
