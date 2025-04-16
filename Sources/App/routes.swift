@@ -10,6 +10,7 @@ let apiKey = Environment.get("API_KEY") ?? ""
 struct SummarizeRequest: Content {
     let url: String
     let lang: String?
+    let apiKey: String
 }
 
 struct OpenRouterRequest: Content {
@@ -46,9 +47,10 @@ func routes(_ app: Application) throws {
     
     app.get("summarize") { req -> EventLoopFuture<String> in
         
-        // 1. Odczytujemy URL i język z query
+        // 1. Odczytujemy URL, język oraz klucz API z query
         let summarizeReq = try req.query.decode(SummarizeRequest.self)
         let lang = summarizeReq.lang ?? "en"
+        let userApiKey = summarizeReq.apiKey
         
         guard let scheme = URI(string: summarizeReq.url).scheme?.lowercased(),
               (scheme == "http" || scheme == "https") else {
@@ -99,7 +101,7 @@ func routes(_ app: Application) throws {
                 
                 // Robimy POST z kluczem w nagłówku
                 return req.client.post(URI(string: "https://openrouter.ai/api/v1/chat/completions")) { outReq in
-                    outReq.headers.bearerAuthorization = BearerAuthorization(token: apiKey)
+                    outReq.headers.bearerAuthorization = BearerAuthorization(token: userApiKey)
                     outReq.headers.add(name: .contentType, value: "application/json")
                     try outReq.content.encode(openRouterReq)
                 }
