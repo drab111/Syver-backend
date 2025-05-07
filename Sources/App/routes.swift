@@ -89,9 +89,10 @@ func routes(_ app: Application) throws {
                     meta-llama/llama-3.1-8b-instruct:free
                     qwen/qwen-2.5-vl-7b-instruct:free
                     mistralai/mistral-nemo:free
+                    deepseek/deepseek-chat-v3-0324:free
                      
-                     */
-                    model: "google/gemini-2.0-flash-exp:free",
+                    */
+                    model: "deepseek/deepseek-chat-v3-0324:free",
                     messages: [
                         .init(role: "system", content: "You are a helpful AI for summarizing articles in the language requested by the user"),
                         .init(role: "user", content: "The user language code is '\(lang)'. Summarize the following article in this language in 3-5 sentences:\n\(actualText)")
@@ -109,6 +110,12 @@ func routes(_ app: Application) throws {
         
         // 4. Dekodujemy JSON z OpenRouter (znowu flatMapThrowing bo .decode może rzucić)
             .flatMapThrowing { openRouterResponse in
+                
+                if let body = openRouterResponse.body,
+                   let responseString = body.getString(at: 0, length: body.readableBytes) {
+                    print("RAW OpenRouter response: \(responseString)")
+                }
+                
                 let decoded = try openRouterResponse.content.decode(OpenRouterResponse.self)
                 guard let choice = decoded.choices.first else {
                     throw Abort(.badRequest, reason: "No choices from model")
