@@ -92,7 +92,7 @@ func routes(_ app: Application) throws {
                     deepseek/deepseek-chat-v3-0324:free
                      
                     */
-                    model: "google/gemini-2.0-flash-exp:free",
+                    model: "deepseek/deepseek-chat-v3-0324:free",
                     messages: [
                         .init(role: "system", content: "You are a helpful AI for summarizing articles in the language requested by the user"),
                         .init(role: "user", content: "The user language code is '\(lang)'. Summarize the following article in this language in 3-5 sentences:\n\(actualText)")
