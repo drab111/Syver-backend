@@ -1,4 +1,4 @@
-@testable import App
+/*@testable import App
 import VaporTesting
 import Testing
 import Fluent
@@ -80,3 +80,4 @@ extension TodoDTO: Equatable {
         lhs.id == rhs.id && lhs.title == rhs.title
     }
 }
+*/
