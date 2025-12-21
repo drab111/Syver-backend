@@ -98,18 +98,29 @@ final class OpenRouterService {
                 dtos.append(dto)
             }
         }
-        dtos.sort { $0.id < $1.id }
         
-        // 9) zapis do cache (prosty JSON string)
+        // 9) deduplikacja po id
+        var seen = Set<String>()
+        var unique: [ModelInfoDTO] = []
+        unique.reserveCapacity(dtos.count) // optymalizacja pamięciowa (wiemy ile max będzie rekorów więc tyle rezerwujemy miejsca)
+        
+        for dto in dtos {
+            if seen.insert(dto.id).inserted {
+                unique.append(dto)
+            } else { logger.warning("Duplicate model skipped: \(dto.id) (\(dto.name))") }
+        }
+        unique.sort { $0.id < $1.id }
+        
+        // 10) zapis do cache (prosty JSON string)
         do {
-            let outData = try JSONEncoder().encode(dtos)
+            let outData = try JSONEncoder().encode(unique)
             if let outString = String(data: outData, encoding: .utf8) {
                 try await cache.set(cacheKey, to: outString)
             }
         } catch { logger.warning("OpenRouterService: could not cache DTOs: \(error.localizedDescription)") }
         
-        logger.info("OpenRouterService: fetched \(dtos.count) models")
-        return dtos
+        logger.info("OpenRouterService: fetched \(unique.count) unique models")
+        return unique
     }
     
     // MARK: - Summaries
