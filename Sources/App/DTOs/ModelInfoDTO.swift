@@ -7,7 +7,6 @@
 
 import Vapor
 
-// prosty DTO używany do zwracania klientowi
 struct ModelInfoDTO: Content {
     let id: String
     let slug: String?
@@ -17,12 +16,13 @@ struct ModelInfoDTO: Content {
     let pricing: [String: String]?
 }
 
-// helper init z surowego słownika (upraszcza mapping)
+// Helper init from a raw dictionary (simplifies mapping)
 extension ModelInfoDTO {
     init?(from dict: [String: Any]) {
-        // id wymagane
+        // id
         guard let id = dict["id"] as? String else { return nil }
         self.id = id
+        
         // slug (canonical_slug)
         if let slug = dict["canonical_slug"] as? String {
             self.slug = slug
@@ -31,15 +31,22 @@ extension ModelInfoDTO {
         } else {
             self.slug = nil
         }
+        
         // name (fallback to id)
-        if let name = dict["name"] as? String { self.name = name }
-        else { self.name = id }
+        if let name = dict["name"] as? String {
+            self.name = name
+        } else { self.name = id }
+        
         // description
         self.description = dict["description"] as? String
+        
         // context_length (Int or Number)
-        if let ctx = dict["context_length"] as? Int { self.context_length = ctx }
-        else if let n = dict["context_length"] as? NSNumber { self.context_length = n.intValue }
-        else { self.context_length = nil }
+        if let ctx = dict["context_length"] as? Int {
+            self.context_length = ctx
+        } else if let n = dict["context_length"] as? NSNumber {
+            self.context_length = n.intValue
+        } else { self.context_length = nil }
+        
         // pricing: normalize values to String
         if let pricing = dict["pricing"] as? [String: Any] {
             var p: [String: String] = [:]

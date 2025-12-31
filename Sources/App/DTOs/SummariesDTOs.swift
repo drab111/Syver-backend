@@ -21,7 +21,6 @@ struct SummarizeFullRequestDTO: Content {
     let lang: String
 }
 
-// response we return to client
 struct SummarizeResponseDTO: Content {
     let summary: String
 }

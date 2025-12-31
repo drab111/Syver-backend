@@ -7,14 +7,10 @@
 
 import Vapor
 
-// Tworzymy kontroler HTTP, który implementuje protokół RouteCollection
-// RouteCollection = obiekt, który dodaje endpointy (URL-e) do aplikacji
-struct ModelsController: RouteCollection {
-    // Funkcja, którą Vapor wywoła, kiedy rejestrujemy kontroler w routes.swift
-    // Tutaj definiujemy wszystkie endpointy HTTP, które należą do tego kontrolera
+struct ModelsController: RouteCollection { // RouteCollection = an object that registers endpoints (URLs) in the application
+    // Vapor will call this function automatically at startup
     func boot(routes: RoutesBuilder) throws {
-        // Tworzymy grupę endpointów zaczynających się od /models
-        // Dzięki temu zamiast pisać routes.get("models"...) możemy pisać models.get(...)
+        // Group all model-related endpoints under /models
         let models = routes.grouped("models")
         
         // GET /models?refresh=true
@@ -22,18 +18,19 @@ struct ModelsController: RouteCollection {
             try await self.listHandler(req)
         }
         
-        // POST /models/refresh  (admin) -> wymusza pobranie
+        // POST /models/refresh (admin-only)
         models.post("refresh") { req async throws -> HTTPStatus in
             try await self.refreshHandler(req)
         }
     }
     
-    // GET /models?refresh=true
+    // Returns the list of available models
     func listHandler(_ req: Request) async throws -> [ModelInfoDTO] {
-        // Pobieramy query param "?refresh=true" (bo jest opcjonalny - można go nie pisać)
+        // Retrieves the optional query parameter "?refresh=true" (the client may omit it)
         let force = (try? req.query.get(Bool.self, at: "refresh")) ?? false
+        let mode: ModelsRefreshMode = force ? .revalidate : .cacheOnly
         
-        // sprawdzamy że OPENROUTER_KEY jest ustawione
+        // Verify that the OPENROUTER_KEY environment variable is set
         guard let apiKey = Environment.get("OPENROUTER_KEY"), !apiKey.isEmpty else {
             req.logger.error("OPENROUTER_KEY not configured")
             throw Abort(.internalServerError, reason: "Server misconfiguration (OPENROUTER_KEY)")
@@ -41,21 +38,32 @@ struct ModelsController: RouteCollection {
         
         let service = OpenRouterService(client: req.client, cache: req.cache, logger: req.logger, apiKey: apiKey)
         do {
-            // zwracamy tablicę DTO — Vapor automatycznie zakoduje JSON i ustawi Content-Type (status, headers)
-            let dtos = try await service.fetchModelsDTO(forceRefresh: force)
+            // Return the DTO array — Vapor will automatically encode it as JSON and set the appropriate Content-Type, status, and headers
+            let dtos = try await service.fetchModelsDTO(mode: mode)
             return dtos
-        } catch let abort as AbortError { // AbortError to specjalny typ błędu w Vapor, który reprezentuje HTTP błąd
-            // przekażemy aborty (429 itp.) bez zmian
-            throw abort
+        } catch let abort as AbortError { // AbortError is a Vapor-specific error type representing an HTTP error
+            throw abort // forward AbortErrors without modification
         } catch {
             req.logger.error("ModelsController.listHandler error: \(error.localizedDescription)")
             throw Abort(.badGateway, reason: "Unable to fetch models right now")
         }
     }
     
-    // POST /models/refresh
+    // Forces a model refresh
     func refreshHandler(_ req: Request) async throws -> HTTPStatus {
-        // sprawdzamy że OPENROUTER_KEY jest ustawione
+        // Load admin key from ENV
+        guard let adminKey = Environment.get("ADMIN_REFRESH_KEY"), !adminKey.isEmpty else {
+            req.logger.critical("ADMIN_REFRESH_KEY not configured")
+            throw Abort(.internalServerError)
+        }
+        
+        // Read header and compare to original admin key
+        guard let providedKey = req.headers.first(name: "X-Admin-Key"), providedKey == adminKey else {
+            req.logger.warning("Unauthorized models refresh attempt")
+            throw Abort(.unauthorized)
+        }
+        
+        // Verify that the OPENROUTER_KEY environment variable is set
         guard let apiKey = Environment.get("OPENROUTER_KEY"), !apiKey.isEmpty else {
             req.logger.error("OPENROUTER_KEY not configured")
             throw Abort(.internalServerError, reason: "Server misconfiguration (OPENROUTER_KEY)")
@@ -63,7 +71,7 @@ struct ModelsController: RouteCollection {
         
         let service = OpenRouterService(client: req.client, cache: req.cache, logger: req.logger, apiKey: apiKey)
         do {
-            _ = try await service.fetchModelsDTO(forceRefresh: true)
+            _ = try await service.fetchModelsDTO(mode: .force)
             return .ok
         } catch {
             req.logger.error("Failed to refresh models: \(error.localizedDescription)")

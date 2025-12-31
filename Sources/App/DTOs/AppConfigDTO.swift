@@ -7,7 +7,6 @@
 
 import Vapor
 
-// Content = Codable, pozwala Vaporowi automatycznie kodować/dekodować JSON
 struct AppConfigDTO: Content {
     let minVersion: String
 }

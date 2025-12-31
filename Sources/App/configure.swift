@@ -1,6 +1,5 @@
 import Vapor
 
-// configures your application
 public func configure(_ app: Application) async throws {
     app.caches.use(.memory) // in-memory cache (ok for dev & small production)
     
@@ -8,14 +7,9 @@ public func configure(_ app: Application) async throws {
         app.http.server.configuration.port = port
     }
     
-    let corsConfiguration = CORSMiddleware.Configuration(
-        allowedOrigin: .all,
-        allowedMethods: [.GET, .POST, .DELETE, .OPTIONS, .PUT, .PATCH],
-        allowedHeaders: [.xRequestedWith, .origin, .contentType, .accept]
-    )
-    let cors = CORSMiddleware(configuration: corsConfiguration)
-    app.middleware.use(cors)
+    // Apply a simple global rate limit to protect public endpoints
+    app.middleware.use(RateLimitMiddleware(maxRequests: 60, window: 60))
     
-    // register routes
+    // Register routes
     try routes(app)
 }
