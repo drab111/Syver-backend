@@ -84,7 +84,7 @@ struct SummariesController: RouteCollection {
         let service = OpenRouterService(client: req.client, cache: req.cache, logger: req.logger, apiKey: apiKey)
         
         // Send to OpenRouter using user's key
-        let ORResponse = try await service.postChatCompletion(client: req.client, logger: req.logger, apiKey: userApiKey, requestBody: ORRequest)
+        let ORResponse = try await service.postChatCompletion(requestBody: ORRequest)
         
         // Extract content text
         guard let choice = ORResponse.choices.first else {
@@ -114,7 +114,7 @@ struct SummariesController: RouteCollection {
         )
         
         let service = OpenRouterService(client: req.client, cache: req.cache, logger: req.logger, apiKey: apiKey)
-        let ORResponse = try await service.postChatCompletion(client: req.client, logger: req.logger, apiKey: apiKey, requestBody: ORRequest)
+        let ORResponse = try await service.postChatCompletion(requestBody: ORRequest)
         
         guard let choice = ORResponse.choices.first else {
             throw Abort(.badGateway, reason: "No choices in OpenRouter response")

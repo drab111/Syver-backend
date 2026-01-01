@@ -18,11 +18,7 @@ final class OpenRouterService {
     private let cache: Cache
     private let logger: Logger
     private let apiKey: String
-    
-    // MARK: - Refresh policy
-    
-    // Minimum interval between upstream refreshes (seconds)
-    private let refreshInterval: TimeInterval = 120
+    private let refreshPolicy: RefreshPolicy // controls when an upstream refresh is allowed based on time policy
     
     // Cache key storing the timestamp of the last successful upstream fetch
     private let lastFetchKey = "openrouter:models:lastFetch"
@@ -30,11 +26,12 @@ final class OpenRouterService {
     // Cache key storing serialized ModelInfoDTO array
     private let cacheKey = "openrouter:models:simple:v1"
     
-    init(client: Client, cache: Cache, logger: Logger, apiKey: String) {
+    init(client: Client, cache: Cache, logger: Logger, apiKey: String, refreshPolicy: RefreshPolicy = RefreshPolicy(refreshInterval: 120)) {
         self.client = client
         self.cache = cache
         self.logger = logger
         self.apiKey = apiKey
+        self.refreshPolicy = refreshPolicy
     }
     
     // MARK: - AI Models
@@ -59,7 +56,9 @@ final class OpenRouterService {
                 
             // Public refresh hint: only revalidate if refresh interval elapsed
             case .revalidate:
-                if !(await shouldFetchFromUpstream()) {
+                let now = Date().timeIntervalSince1970
+                let lastFetch: Double? = try? await cache.get(lastFetchKey, as: Double.self)
+                if !refreshPolicy.shouldFetch(now: now, lastFetch: lastFetch) {
                     return dtos
                 }
                 
@@ -154,21 +153,9 @@ final class OpenRouterService {
         return unique
     }
     
-    // Determines whether an upstream fetch is allowed based on the last successful fetch timestamp
-    private func shouldFetchFromUpstream() async -> Bool {
-        let now = Date().timeIntervalSince1970
-        
-        if let last: Double = try? await cache.get(lastFetchKey, as: Double.self) {
-            return (now - last) >= refreshInterval
-        }
-        
-        // No timestamp means first fetch
-        return true
-    }
-    
     // MARK: - Summaries
     
-    func postChatCompletion(client: Client, logger: Logger, apiKey: String, requestBody: OpenRouterRequestDTO) async throws -> OpenRouterResponseDTO {
+    func postChatCompletion(requestBody: OpenRouterRequestDTO) async throws -> OpenRouterResponseDTO {
         // Prepare OpenRouter Chat Completions endpoint
         let url = URI(string: "https://openrouter.ai/api/v1/chat/completions")
         
