@@ -1,6 +1,5 @@
 # Syver Backend
-> Backend service built with **Vapor**, supporting the Syver iOS application and Safari Web Extension
-> The client application is available here: https://github.com/drab111/Syver
+> Backend service built with **Vapor**, supporting the Syver iOS application and Safari Web Extension. The client application is available here: https://github.com/drab111/Syver
 
 ---
 

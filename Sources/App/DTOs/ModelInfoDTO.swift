@@ -59,3 +59,20 @@ extension ModelInfoDTO {
         } else { self.pricing = nil }
     }
 }
+
+// Determines whether the model is free based on pricing info
+extension ModelInfoDTO {
+    var isFree: Bool {
+        // Assume not free if unknown
+        guard let pricing = pricing else { return false }
+        
+        for (_, valueRaw) in pricing {
+            let value = valueRaw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if value == "free" || value.isEmpty { continue }
+            let cost = Double(value) ?? Double.infinity
+            if cost != 0 { return false }
+        }
+        
+        return true
+    }
+}

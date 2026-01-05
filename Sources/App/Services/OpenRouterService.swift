@@ -136,11 +136,14 @@ final class OpenRouterService {
                 unique.append(dto)
             } else { logger.warning("Duplicate model skipped: \(dto.id) (\(dto.name))") }
         }
-        unique.sort { $0.id < $1.id }
+        
+        // Keep only free models
+        var freeOnly = unique.filter { $0.isFree }
+        freeOnly.sort { $0.id < $1.id }
         
         // Cache result and update last fetch timestamp
         do {
-            let outData = try JSONEncoder().encode(unique)
+            let outData = try JSONEncoder().encode(freeOnly)
             if let outString = String(data: outData, encoding: .utf8) {
                 try await cache.set(cacheKey, to: outString)
             }
@@ -149,8 +152,8 @@ final class OpenRouterService {
         // Update last successful fetch timestamp
         try? await cache.set(lastFetchKey, to: Date().timeIntervalSince1970)
         
-        logger.info("OpenRouterService: fetched \(unique.count) unique models")
-        return unique
+        logger.info("OpenRouterService: fetched \(freeOnly.count) unique free models")
+        return freeOnly
     }
     
     // MARK: - Summaries
