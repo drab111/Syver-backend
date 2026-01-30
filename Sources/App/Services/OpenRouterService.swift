@@ -19,12 +19,13 @@ final class OpenRouterService {
     private let logger: Logger
     private let apiKey: String
     private let refreshPolicy: RefreshPolicy // controls when an upstream refresh is allowed based on time policy
+    private let freeOnly: Bool = Environment.get("OPENROUTER_FREE_ONLY") != "false"
     
     // Cache key storing the timestamp of the last successful upstream fetch
-    private let lastFetchKey = "openrouter:models:lastFetch"
+    private var lastFetchKey: String { "openrouter:models:lastFetch:\(freeOnly ? "free" : "all")" }
     
     // Cache key storing serialized ModelInfoDTO array
-    private let cacheKey = "openrouter:models:simple:v1"
+    private var cacheKey: String { "openrouter:models:simple:v1:\(freeOnly ? "free" : "all")" }
     
     init(client: Client, cache: Cache, logger: Logger, apiKey: String, refreshPolicy: RefreshPolicy = RefreshPolicy(refreshInterval: 120)) {
         self.client = client
@@ -137,13 +138,15 @@ final class OpenRouterService {
             } else { logger.warning("Duplicate model skipped: \(dto.id) (\(dto.name))") }
         }
         
-        // Keep only free models
-        var freeOnly = unique.filter { $0.isFree }
-        freeOnly.sort { $0.id < $1.id }
+        // Default keep only free models
+        let result = freeOnly ? unique.filter { $0.isFree } : unique
+        
+        // Sort results
+        let sorted = result.sorted { $0.id < $1.id }
         
         // Cache result and update last fetch timestamp
         do {
-            let outData = try JSONEncoder().encode(freeOnly)
+            let outData = try JSONEncoder().encode(sorted)
             if let outString = String(data: outData, encoding: .utf8) {
                 try await cache.set(cacheKey, to: outString)
             }
@@ -152,8 +155,8 @@ final class OpenRouterService {
         // Update last successful fetch timestamp
         try? await cache.set(lastFetchKey, to: Date().timeIntervalSince1970)
         
-        logger.info("OpenRouterService: fetched \(freeOnly.count) unique free models")
-        return freeOnly
+        logger.info("OpenRouterService: fetched \(sorted.count) unique models")
+        return sorted
     }
     
     // MARK: - Summaries
