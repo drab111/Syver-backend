@@ -35,6 +35,17 @@ final class OpenRouterService {
         self.refreshPolicy = refreshPolicy
     }
     
+    // MARK: - Model Stability Filtering
+    /// Keywords identifying upstream providers/models that are known
+    /// to be unstable or frequently rate-limited.
+    /// Filtered server-side to avoid exposing unreliable models to clients.
+    private let unstableModelKeywords: [String] = ["llama", "mistral", "deepseek", "nous", "pony", "venice"]
+    
+    private func isStableModel(_ dto: ModelInfoDTO) -> Bool {
+        let haystack = (dto.id + " " + dto.name).lowercased()
+        return !unstableModelKeywords.contains { haystack.contains($0) }
+    }
+    
     // MARK: - AI Models
     /// Fetches available models from OpenRouter.
     ///
@@ -139,7 +150,18 @@ final class OpenRouterService {
         }
         
         // Default keep only free models
-        let result = freeOnly ? unique.filter { $0.isFree } : unique
+        let filtered = freeOnly ? unique.filter { $0.isFree } : unique
+        
+        // Filter out known unstable upstream providers to prevent user-facing failures
+        let result = filtered.filter(isStableModel)
+        
+        // Log removed unstable models (useful for monitoring upstream issues)
+        let removed = filtered.filter { !isStableModel($0) }
+        if !removed.isEmpty {
+            logger.warning(
+                "OpenRouterService: filtered unstable models: \(removed.map(\.id).joined(separator: ", "))"
+            )
+        }
         
         // Sort results
         let sorted = result.sorted { $0.id < $1.id }
