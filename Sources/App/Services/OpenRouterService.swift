@@ -39,7 +39,7 @@ final class OpenRouterService {
     /// Keywords identifying upstream providers/models that are known
     /// to be unstable or frequently rate-limited.
     /// Filtered server-side to avoid exposing unreliable models to clients.
-    private let unstableModelKeywords: [String] = ["llama", "mistral", "deepseek", "nous", "pony", "venice"]
+    private let unstableModelKeywords: [String] = ["llama", "mistral", "deepseek", "nous", "pony", "venice", "qwen"]
     
     private func isStableModel(_ dto: ModelInfoDTO) -> Bool {
         let haystack = (dto.id + " " + dto.name).lowercased()
